@@ -127,5 +127,6 @@ func main() {
 	go hub.Process()
 
 	http.HandleFunc("/ws", websocketHandler)
+	http.Handle("/", http.FileServer(http.Dir("static")))
 	http.ListenAndServe(":8080", nil)
 }

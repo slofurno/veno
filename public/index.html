@@ -17,9 +17,69 @@
 </head>
 <body>
   <div id="root"></div>
+  <canvas id="screen" width="800" height="600"/>
   <script>
+    const PI = Math.PI
     var ws = new WebSocket("ws://192.168.1.105:8080/ws")
     ws.onmessage = e => console.log(e.data)
+    var screen = document.getElementById("screen")
+    var ctx = screen.getContext("2d")
+    ctx.fillStyle="gainsboro"
+    ctx.fillRect(0, 0, 800, 600)
+    const mouse = {x:400, y:300}
+    screen.onmousemove = e => {
+      mouse.x = e.layerX
+      mouse.y = e.layerY
+    }
+
+    let heading = 0
+
+    function shortest(a0, a1) {
+      var da = a1 - a0
+      return da > PI ? PI - da : da
+    }
+
+    const maxv = PI/60
+
+    function render() {
+      requestAnimationFrame(render)
+      const dir = Math.atan2(mouse.y - 300, mouse.x - 400)
+      const da = dir - heading
+      let togo = da
+      if (togo > PI)
+        togo -= 2*PI
+
+      if (togo < -PI)
+        togo += 2*PI
+
+      const moved = togo > 0 ? Math.min(togo, PI/60) : Math.max(togo, -PI/60)
+      heading += moved
+      heading %= 2*PI
+
+      const p0 = {x: 400, y: 300}
+      const dp = {x: Math.cos(heading)*300, y: Math.sin(heading)*300}
+
+      const g1 = {x: Math.cos(dir)*400, y:Math.sin(dir)*400}
+
+      ctx.fillStyle="gainsboro"
+      ctx.fillRect(0, 0, 800, 600)
+      ctx.lineWidth = 4;
+
+      ctx.strokeStyle="cornflowerblue";
+      ctx.beginPath();
+      ctx.moveTo(400,300);
+      ctx.lineTo(400 + g1.x,300+g1.y);
+      ctx.stroke();
+
+      ctx.strokeStyle="crimson";
+      ctx.beginPath();
+      ctx.moveTo(400,300);
+      ctx.lineTo(400 + dp.x,300+dp.y);
+      ctx.stroke();
+    }
+
+    requestAnimationFrame(render)
+
 
   </script>
 </body>
