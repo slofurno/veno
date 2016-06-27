@@ -9,6 +9,9 @@ import (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 type Hub struct {
@@ -62,6 +65,19 @@ func (s *Hub) addConnection(conn *Conn) {
 	s.connections = append(s.connections, conn)
 }
 
+func (s *Hub) removeConnection(conn *Conn) {
+	func() {
+		for i, c := range s.connections {
+			if conn == c {
+				s.connections = append(s.connections[:i], s.connections[i+1:]...)
+				return
+			}
+		}
+	}()
+
+	close(conn.send)
+}
+
 func (s *Hub) broadcast(msg []byte) {
 	for _, n := range s.connections {
 		n.send <- msg
@@ -76,7 +92,7 @@ func (s *Hub) Process() {
 		case msg := <-s.send:
 			s.broadcast(msg)
 		case conn := <-s.remove:
-
+			s.removeConnection(conn)
 		}
 	}
 }
@@ -88,12 +104,27 @@ func websocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		ws.ReadMessage()
+	conn := &Conn{ws, make(chan []byte, 32)}
+	hub.addConnection(conn)
+
+	go conn.writeLoop()
+
+	defer func() {
+		hub.removeConnection(conn)
 	}()
+
+	for {
+		_, msg, err := ws.ReadMessage()
+		if err != nil {
+			return
+		}
+
+		hub.broadcast(msg)
+	}
 }
 
 func main() {
+	go hub.Process()
 
 	http.HandleFunc("/ws", websocketHandler)
 	http.ListenAndServe(":8080", nil)
